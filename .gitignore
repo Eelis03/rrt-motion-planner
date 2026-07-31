@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+# Python build artefacts at the repository root only. viz/dist holds the compiled
+# visualisation bundle, which is committed so that the page runs without a build step.
+/dist/
+/build/
+*.egg-info/
+outputs/
+node_modules/
+.DS_Store

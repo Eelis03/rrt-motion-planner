@@ -1,0 +1,200 @@
+[
+  {
+    "planner": "RRT",
+    "problem": "cluttered",
+    "seed": 0,
+    "success": true,
+    "cost": 15.331152785604427,
+    "node_count": 255,
+    "iterations": 433,
+    "wall_time_s": 0.0,
+    "path_length": 28
+  },
+  {
+    "planner": "RRT",
+    "problem": "cluttered",
+    "seed": 1,
+    "success": true,
+    "cost": 16.771765655797942,
+    "node_count": 125,
+    "iterations": 186,
+    "wall_time_s": 0.0,
+    "path_length": 29
+  },
+  {
+    "planner": "RRT",
+    "problem": "cluttered",
+    "seed": 2,
+    "success": true,
+    "cost": 15.984990175506141,
+    "node_count": 260,
+    "iterations": 390,
+    "wall_time_s": 0.0,
+    "path_length": 28
+  },
+  {
+    "planner": "RRT star",
+    "problem": "cluttered",
+    "seed": 0,
+    "success": true,
+    "cost": 14.72810464316609,
+    "node_count": 384,
+    "iterations": 600,
+    "wall_time_s": 0.0,
+    "path_length": 31
+  },
+  {
+    "planner": "RRT star",
+    "problem": "cluttered",
+    "seed": 1,
+    "success": true,
+    "cost": 15.35472035358106,
+    "node_count": 418,
+    "iterations": 600,
+    "wall_time_s": 0.0,
+    "path_length": 32
+  },
+  {
+    "planner": "RRT star",
+    "problem": "cluttered",
+    "seed": 2,
+    "success": true,
+    "cost": 14.628035670817685,
+    "node_count": 420,
+    "iterations": 600,
+    "wall_time_s": 0.0,
+    "path_length": 30
+  },
+  {
+    "planner": "PRM",
+    "problem": "cluttered",
+    "seed": 0,
+    "success": true,
+    "cost": 15.337616577473016,
+    "node_count": 250,
+    "iterations": 360,
+    "wall_time_s": 0.0,
+    "path_length": 18
+  },
+  {
+    "planner": "PRM",
+    "problem": "cluttered",
+    "seed": 1,
+    "success": true,
+    "cost": 14.002568206759237,
+    "node_count": 250,
+    "iterations": 354,
+    "wall_time_s": 0.0,
+    "path_length": 16
+  },
+  {
+    "planner": "PRM",
+    "problem": "cluttered",
+    "seed": 2,
+    "success": true,
+    "cost": 15.174065622226541,
+    "node_count": 250,
+    "iterations": 361,
+    "wall_time_s": 0.0,
+    "path_length": 20
+  },
+  {
+    "planner": "RRT",
+    "problem": "narrow_passage",
+    "seed": 0,
+    "success": true,
+    "cost": 16.050597280557838,
+    "node_count": 83,
+    "iterations": 128,
+    "wall_time_s": 0.0,
+    "path_length": 28
+  },
+  {
+    "planner": "RRT",
+    "problem": "narrow_passage",
+    "seed": 1,
+    "success": true,
+    "cost": 16.739683719184843,
+    "node_count": 103,
+    "iterations": 186,
+    "wall_time_s": 0.0,
+    "path_length": 29
+  },
+  {
+    "planner": "RRT",
+    "problem": "narrow_passage",
+    "seed": 2,
+    "success": true,
+    "cost": 20.641019615670633,
+    "node_count": 218,
+    "iterations": 457,
+    "wall_time_s": 0.0,
+    "path_length": 36
+  },
+  {
+    "planner": "RRT star",
+    "problem": "narrow_passage",
+    "seed": 0,
+    "success": true,
+    "cost": 14.994109156653263,
+    "node_count": 497,
+    "iterations": 600,
+    "wall_time_s": 0.0,
+    "path_length": 31
+  },
+  {
+    "planner": "RRT star",
+    "problem": "narrow_passage",
+    "seed": 1,
+    "success": true,
+    "cost": 15.849990591790396,
+    "node_count": 473,
+    "iterations": 600,
+    "wall_time_s": 0.0,
+    "path_length": 31
+  },
+  {
+    "planner": "RRT star",
+    "problem": "narrow_passage",
+    "seed": 2,
+    "success": true,
+    "cost": 15.916654886233408,
+    "node_count": 345,
+    "iterations": 600,
+    "wall_time_s": 0.0,
+    "path_length": 32
+  },
+  {
+    "planner": "PRM",
+    "problem": "narrow_passage",
+    "seed": 0,
+    "success": true,
+    "cost": 15.03232651518078,
+    "node_count": 250,
+    "iterations": 278,
+    "wall_time_s": 0.0,
+    "path_length": 16
+  },
+  {
+    "planner": "PRM",
+    "problem": "narrow_passage",
+    "seed": 1,
+    "success": false,
+    "cost": null,
+    "node_count": 250,
+    "iterations": 274,
+    "wall_time_s": 0.0,
+    "path_length": 0
+  },
+  {
+    "planner": "PRM",
+    "problem": "narrow_passage",
+    "seed": 2,
+    "success": true,
+    "cost": 14.618706784683447,
+    "node_count": 250,
+    "iterations": 280,
+    "wall_time_s": 0.0,
+    "path_length": 16
+  }
+]

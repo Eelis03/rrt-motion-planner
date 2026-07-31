@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RRT motion planner, tree growth</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --surface: #171c21;
+        --border: #2b3138;
+        --text: #dfe5ea;
+        --muted: #93a1ac;
+        --accent: #7fd1ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #0c0f12;
+        color: var(--text);
+        font: 14px/1.5 ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+      }
+
+      main {
+        margin: 0 auto;
+        max-width: 1000px;
+      }
+
+      h1 {
+        font-size: 20px;
+        font-weight: 600;
+        margin: 0 0 4px;
+      }
+
+      p.lede {
+        color: var(--muted);
+        margin: 0 0 20px;
+        max-width: 70ch;
+      }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 14px;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+
+      .controls label {
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      button,
+      select,
+      input[type="file"] {
+        background: #212831;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font: inherit;
+        padding: 6px 10px;
+      }
+
+      button {
+        cursor: pointer;
+        min-width: 82px;
+      }
+
+      button:hover {
+        border-color: var(--accent);
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: min(70vh, 620px);
+        border-radius: 6px;
+        background: #101418;
+      }
+
+      .status {
+        color: var(--accent);
+        font-variant-numeric: tabular-nums;
+        margin-top: 12px;
+      }
+
+      .readout {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .message {
+        color: #f0a868;
+        margin-top: 8px;
+        max-width: 80ch;
+      }
+
+      input[type="range"] {
+        accent-color: var(--accent);
+        min-width: 220px;
+      }
+
+      .legend {
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-top: 12px;
+      }
+
+      .swatch {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        margin-right: 6px;
+        vertical-align: -1px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Tree growth, RRT and RRT star and PRM</h1>
+      <p class="lede">
+        Replay of a planner run exported from the Python package. Each frame adds the
+        vertices the planner inserted, in the order it inserted them. For RRT star the
+        recorded rewirings are replayed as well, so branches visibly reattach to cheaper
+        parents as the run proceeds. The solution path is drawn once the replay reaches
+        the end of the run.
+      </p>
+
+      <div class="panel">
+        <div class="controls">
+          <label for="trace-select">Trace</label>
+          <select id="trace-select"></select>
+          <input id="trace-file" type="file" accept="application/json,.json" />
+          <button id="play" type="button">Play</button>
+          <button id="restart" type="button">Restart</button>
+          <label for="progress">Progress</label>
+          <input id="progress" type="range" min="0" max="100" value="0" step="1" />
+          <label for="speed">Vertices per second</label>
+          <input id="speed" type="range" min="20" max="2000" value="400" step="20" />
+        </div>
+
+        <canvas id="scene"></canvas>
+
+        <div class="status" id="status">No trace loaded.</div>
+        <div class="readout" id="readout"></div>
+        <div class="message" id="message"></div>
+
+        <div class="legend">
+          <span><span class="swatch" style="background: #5cc98b"></span>start</span>
+          <span><span class="swatch" style="background: #e05c5c"></span>goal</span>
+          <span><span class="swatch" style="background: #3d7ea6"></span>settled edges</span>
+          <span><span class="swatch" style="background: #7fd1ff"></span>recent edges</span>
+          <span><span class="swatch" style="background: #f2994a"></span>solution path</span>
+          <span><span class="swatch" style="background: #2b3138"></span>obstacles</span>
+        </div>
+      </div>
+    </main>
+
+    <script src="dist/viz.js"></script>
+  </body>
+</html>

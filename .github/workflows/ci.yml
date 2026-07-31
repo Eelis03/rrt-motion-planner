@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Python 3.12 on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Run tests
+        run: uv run pytest -q
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Type check
+        run: uv run mypy
+
+  viz:
+    name: Visualisation bundle
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: viz/package-lock.json
+
+      - name: Install the compiler
+        run: npm ci
+        working-directory: viz
+
+      - name: Type check the sources
+        run: npm run check
+        working-directory: viz
+
+      # The compiled bundle is committed so that the page needs no build step. This
+      # rebuilds it and fails if the result differs from what is in the repository.
+      - name: Confirm the committed bundle matches the sources
+        run: |
+          cp dist/viz.js /tmp/committed-viz.js
+          npm run build
+          diff /tmp/committed-viz.js dist/viz.js
+        working-directory: viz
