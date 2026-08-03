@@ -42,7 +42,11 @@ def main() -> None:
     print(f"straight-line lower bound: {problem.straight_line_cost:.3f}")
     for result in results:
         outcome = f"cost {result.cost:.3f}" if result.success else "no path"
-        print(f"  {result.planner:9s} {outcome:>13s}  nodes {result.node_count:5d}")
+        print(
+            f"  {result.planner:9s} {outcome:>13s}  nodes {result.node_count:5d}"
+            f"  checks {result.collision_checks:6d}"
+            f" ({result.point_checks} point, {result.segment_checks} segment)"
+        )
 
     if problem.dimension == 2:
         written = save_figure(

@@ -30,6 +30,8 @@ def trace(planner: str, problem: str, seed: int, success: bool, cost: float) -> 
         cost=cost,
         node_count=100 + seed,
         iterations=500,
+        point_checks=10 * (seed + 1),
+        segment_checks=1000 + seed,
         wall_time_s=0.1 * (seed + 1),
         path_length=4 if success else 0,
     )
@@ -101,6 +103,23 @@ class TestSummarise:
         assert summary.node_count_mean == pytest.approx(100.5)
         assert summary.wall_time_mean == pytest.approx(0.15)
 
+    def test_collision_checks_average_over_all_runs_including_failures(self) -> None:
+        # Seed 0 asks 10 + 1000 queries, seed 1 asks 20 + 1001, so the mean is 1015.5
+        # and the sample deviation is sqrt(((1010 - 1015.5)^2 + (1021 - 1015.5)^2) / 1).
+        traces = [
+            trace("RRT", "a", 0, True, 10.0),
+            trace("RRT", "a", 1, False, math.inf),
+        ]
+        summary = summarise(traces)[0]
+        assert summary.collision_check_mean == pytest.approx(1015.5)
+        assert summary.collision_check_std == pytest.approx(math.sqrt(2.0 * 5.5**2))
+
+    def test_the_reported_total_is_the_sum_of_the_two_kinds(self) -> None:
+        record = trace("RRT", "a", 3, True, 10.0)
+        assert record.point_checks == 40
+        assert record.segment_checks == 1003
+        assert record.collision_checks == 1043
+
 
 class TestReport:
     """The Markdown table pasted into the README."""
@@ -154,7 +173,7 @@ class TestFigures:
         written = save_figure(convergence_figure(results), tmp_path / "convergence.png")
         assert written.exists() and written.stat().st_size > 0
 
-    def test_summary_figure_draws_three_panels(
+    def test_summary_figure_draws_four_panels(
         self, tmp_path: Path, blocked_problem: PlanningProblem
     ) -> None:
         traces = run_benchmark(
@@ -164,7 +183,7 @@ class TestFigures:
             base_seed=0,
         )
         figure = summary_figure(summarise(traces))
-        assert len(figure.axes) == 3
+        assert len(figure.axes) == 4
         written = save_figure(figure, tmp_path / "summary.png")
         assert written.exists() and written.stat().st_size > 0
 

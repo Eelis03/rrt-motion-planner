@@ -23,7 +23,9 @@ from rrt_planner.model.space import Vector, as_vector
 __all__ = [
     "Box",
     "Circle",
+    "CollisionChecker",
     "ConvexPolygon",
+    "CountingChecker",
     "Obstacle",
     "ObstacleSet",
     "halfspaces_intersect_segment",
@@ -50,6 +52,24 @@ class Obstacle(Protocol):
 
     def intersects_segment(self, start: Vector, end: Vector) -> bool:
         """True when the closed segment from ``start`` to ``end`` meets the obstacle."""
+        ...
+
+
+@runtime_checkable
+class CollisionChecker(Protocol):
+    """Answers the two collision queries a planner is permitted to ask.
+
+    :class:`ObstacleSet` implements this directly. :class:`CountingChecker` wraps
+    one and records how many queries were asked, which is what lets a planner
+    report its effort in a unit that does not depend on the machine it ran on.
+    """
+
+    def is_free(self, point: Vector) -> bool:
+        """True when ``point`` lies in no obstacle."""
+        ...
+
+    def segment_is_free(self, start: Vector, end: Vector) -> bool:
+        """True when the closed segment from ``start`` to ``end`` meets no obstacle."""
         ...
 
 
@@ -278,3 +298,57 @@ class ObstacleSet:
     def segment_is_free(self, start: Vector, end: Vector) -> bool:
         """True when the closed segment from ``start`` to ``end`` meets no obstacle."""
         return not any(obstacle.intersects_segment(start, end) for obstacle in self.obstacles)
+
+
+class CountingChecker:
+    """A collision checker that delegates to an obstacle set and counts the queries.
+
+    A query is counted, not an individual obstacle test underneath it, because the
+    query is the operation whose cost the planning literature reports and the only
+    one whose count does not change when the obstacle set is reorganised. Point and
+    segment queries are counted apart because they are not the same operation and
+    the planners do not use them in the same proportion: a tree planner asks almost
+    nothing but segment queries, while a roadmap tests every sampled milestone for
+    freedom before it tests any edge.
+
+    The counter is mutable and belongs to one planner run. Keeping it here rather
+    than inside :class:`ObstacleSet` is what lets an obstacle set stay frozen and be
+    shared by every run of a benchmark without one run's count leaking into another.
+    """
+
+    __slots__ = ("_obstacles", "_point_checks", "_segment_checks")
+
+    def __init__(self, obstacles: ObstacleSet) -> None:
+        self._obstacles = obstacles
+        self._point_checks = 0
+        self._segment_checks = 0
+
+    @property
+    def obstacles(self) -> ObstacleSet:
+        """The obstacle set the queries are answered against."""
+        return self._obstacles
+
+    @property
+    def point_checks(self) -> int:
+        """Number of point queries answered so far."""
+        return self._point_checks
+
+    @property
+    def segment_checks(self) -> int:
+        """Number of segment queries answered so far."""
+        return self._segment_checks
+
+    @property
+    def total_checks(self) -> int:
+        """Number of collision queries of either kind answered so far."""
+        return self._point_checks + self._segment_checks
+
+    def is_free(self, point: Vector) -> bool:
+        """True when ``point`` lies in no obstacle, recording the query."""
+        self._point_checks += 1
+        return self._obstacles.is_free(point)
+
+    def segment_is_free(self, start: Vector, end: Vector) -> bool:
+        """True when the closed segment meets no obstacle, recording the query."""
+        self._segment_checks += 1
+        return self._obstacles.segment_is_free(start, end)

@@ -33,6 +33,7 @@ import numpy as np
 from rrt_planner.algorithm.base import NearestNeighbourIndex, steer
 from rrt_planner.algorithm.rrt import GOAL_EPSILON
 from rrt_planner.model.graph import SearchTree
+from rrt_planner.model.obstacles import CountingChecker
 from rrt_planner.model.problem import PlanningProblem, PlanResult
 from rrt_planner.model.space import ConfigurationSpace, Vector
 
@@ -107,6 +108,7 @@ class RRTStar:
         tree = SearchTree.rooted_at(problem.start)
         index = NearestNeighbourIndex(problem.dimension)
         index.add(problem.start)
+        checker = CountingChecker(problem.obstacles)
 
         goal_index: int | None = None
         cost_history: list[tuple[int, float]] = []
@@ -124,19 +126,19 @@ class RRTStar:
             step = float(np.linalg.norm(candidate - origin))
             if step <= GOAL_EPSILON:
                 continue
-            if not problem.obstacles.segment_is_free(origin, candidate):
+            if not checker.segment_is_free(origin, candidate):
                 continue
 
             radius = self.rewiring_radius(problem.space, tree.size)
             neighbours = index.within_radius(candidate, radius)
-            parent, cost = self._choose_parent(problem, tree, neighbours, candidate, nearest, step)
+            parent, cost = self._choose_parent(checker, tree, neighbours, candidate, nearest, step)
             new_index = tree.add_node(candidate, parent, cost)
             index.add(candidate)
 
-            self._rewire(problem, tree, neighbours, new_index, rewires)
+            self._rewire(checker, tree, neighbours, new_index, rewires)
 
             if goal_index is None:
-                goal_index = self._connect_goal(problem, tree, index, new_index)
+                goal_index = self._connect_goal(problem, checker, tree, index, new_index)
             if goal_index is not None:
                 best = tree.costs[goal_index]
                 if not cost_history or best < cost_history[-1][1]:
@@ -150,6 +152,8 @@ class RRTStar:
                 success=False,
                 node_count=tree.size,
                 iterations=self.max_samples,
+                point_checks=checker.point_checks,
+                segment_checks=checker.segment_checks,
                 rewires=tuple(rewires),
                 tree=tree,
             )
@@ -163,6 +167,8 @@ class RRTStar:
             cost=tree.costs[goal_index],
             node_count=tree.size,
             iterations=self.max_samples,
+            point_checks=checker.point_checks,
+            segment_checks=checker.segment_checks,
             cost_history=tuple(cost_history),
             rewires=tuple(rewires),
             tree=tree,
@@ -170,7 +176,7 @@ class RRTStar:
 
     def _choose_parent(
         self,
-        problem: PlanningProblem,
+        checker: CountingChecker,
         tree: SearchTree,
         neighbours: list[int],
         candidate: Vector,
@@ -187,7 +193,7 @@ class RRTStar:
             cost = tree.costs[neighbour] + distance
             if cost >= best_cost - _COST_EPSILON:
                 continue
-            if not problem.obstacles.segment_is_free(tree.configurations[neighbour], candidate):
+            if not checker.segment_is_free(tree.configurations[neighbour], candidate):
                 continue
             best_parent = neighbour
             best_cost = cost
@@ -195,7 +201,7 @@ class RRTStar:
 
     def _rewire(
         self,
-        problem: PlanningProblem,
+        checker: CountingChecker,
         tree: SearchTree,
         neighbours: list[int],
         new_index: int,
@@ -210,7 +216,7 @@ class RRTStar:
             cost = tree.costs[new_index] + distance
             if cost >= tree.costs[neighbour] - _COST_EPSILON:
                 continue
-            if not problem.obstacles.segment_is_free(candidate, tree.configurations[neighbour]):
+            if not checker.segment_is_free(candidate, tree.configurations[neighbour]):
                 continue
             tree.reparent(neighbour, new_index, cost)
             _propagate_costs(tree, neighbour)
@@ -219,6 +225,7 @@ class RRTStar:
     def _connect_goal(
         self,
         problem: PlanningProblem,
+        checker: CountingChecker,
         tree: SearchTree,
         index: NearestNeighbourIndex,
         new_index: int,
@@ -236,7 +243,7 @@ class RRTStar:
             return new_index
         if distance > self.step_size:
             return None
-        if not problem.obstacles.segment_is_free(candidate, problem.goal):
+        if not checker.segment_is_free(candidate, problem.goal):
             return None
         goal_index = tree.add_node(problem.goal, new_index, tree.costs[new_index] + distance)
         index.add(problem.goal)

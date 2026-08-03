@@ -7,6 +7,8 @@
     "cost": 15.331152785604427,
     "node_count": 255,
     "iterations": 433,
+    "point_checks": 0,
+    "segment_checks": 434,
     "wall_time_s": 0.0,
     "path_length": 28
   },
@@ -18,6 +20,8 @@
     "cost": 16.771765655797942,
     "node_count": 125,
     "iterations": 186,
+    "point_checks": 0,
+    "segment_checks": 187,
     "wall_time_s": 0.0,
     "path_length": 29
   },
@@ -29,6 +33,8 @@
     "cost": 15.984990175506141,
     "node_count": 260,
     "iterations": 390,
+    "point_checks": 0,
+    "segment_checks": 391,
     "wall_time_s": 0.0,
     "path_length": 28
   },
@@ -40,6 +46,8 @@
     "cost": 14.72810464316609,
     "node_count": 384,
     "iterations": 600,
+    "point_checks": 0,
+    "segment_checks": 946,
     "wall_time_s": 0.0,
     "path_length": 31
   },
@@ -51,6 +59,8 @@
     "cost": 15.35472035358106,
     "node_count": 418,
     "iterations": 600,
+    "point_checks": 0,
+    "segment_checks": 983,
     "wall_time_s": 0.0,
     "path_length": 32
   },
@@ -62,6 +72,8 @@
     "cost": 14.628035670817685,
     "node_count": 420,
     "iterations": 600,
+    "point_checks": 0,
+    "segment_checks": 1015,
     "wall_time_s": 0.0,
     "path_length": 30
   },
@@ -73,6 +85,8 @@
     "cost": 15.337616577473016,
     "node_count": 250,
     "iterations": 360,
+    "point_checks": 360,
+    "segment_checks": 1207,
     "wall_time_s": 0.0,
     "path_length": 18
   },
@@ -84,6 +98,8 @@
     "cost": 14.002568206759237,
     "node_count": 250,
     "iterations": 354,
+    "point_checks": 354,
+    "segment_checks": 1177,
     "wall_time_s": 0.0,
     "path_length": 16
   },
@@ -95,6 +111,8 @@
     "cost": 15.174065622226541,
     "node_count": 250,
     "iterations": 361,
+    "point_checks": 361,
+    "segment_checks": 1198,
     "wall_time_s": 0.0,
     "path_length": 20
   },
@@ -106,6 +124,8 @@
     "cost": 16.050597280557838,
     "node_count": 83,
     "iterations": 128,
+    "point_checks": 0,
+    "segment_checks": 129,
     "wall_time_s": 0.0,
     "path_length": 28
   },
@@ -117,6 +137,8 @@
     "cost": 16.739683719184843,
     "node_count": 103,
     "iterations": 186,
+    "point_checks": 0,
+    "segment_checks": 187,
     "wall_time_s": 0.0,
     "path_length": 29
   },
@@ -128,6 +150,8 @@
     "cost": 20.641019615670633,
     "node_count": 218,
     "iterations": 457,
+    "point_checks": 0,
+    "segment_checks": 458,
     "wall_time_s": 0.0,
     "path_length": 36
   },
@@ -139,6 +163,8 @@
     "cost": 14.994109156653263,
     "node_count": 497,
     "iterations": 600,
+    "point_checks": 0,
+    "segment_checks": 1126,
     "wall_time_s": 0.0,
     "path_length": 31
   },
@@ -150,6 +176,8 @@
     "cost": 15.849990591790396,
     "node_count": 473,
     "iterations": 600,
+    "point_checks": 0,
+    "segment_checks": 1018,
     "wall_time_s": 0.0,
     "path_length": 31
   },
@@ -161,6 +189,8 @@
     "cost": 15.916654886233408,
     "node_count": 345,
     "iterations": 600,
+    "point_checks": 0,
+    "segment_checks": 939,
     "wall_time_s": 0.0,
     "path_length": 32
   },
@@ -172,6 +202,8 @@
     "cost": 15.03232651518078,
     "node_count": 250,
     "iterations": 278,
+    "point_checks": 278,
+    "segment_checks": 1187,
     "wall_time_s": 0.0,
     "path_length": 16
   },
@@ -183,6 +215,8 @@
     "cost": null,
     "node_count": 250,
     "iterations": 274,
+    "point_checks": 274,
+    "segment_checks": 1199,
     "wall_time_s": 0.0,
     "path_length": 0
   },
@@ -194,6 +228,8 @@
     "cost": 14.618706784683447,
     "node_count": 250,
     "iterations": 280,
+    "point_checks": 280,
+    "segment_checks": 1202,
     "wall_time_s": 0.0,
     "path_length": 16
   }

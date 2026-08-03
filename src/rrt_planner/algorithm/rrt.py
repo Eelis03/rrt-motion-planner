@@ -18,6 +18,7 @@ import numpy as np
 
 from rrt_planner.algorithm.base import NearestNeighbourIndex, steer
 from rrt_planner.model.graph import SearchTree
+from rrt_planner.model.obstacles import CountingChecker
 from rrt_planner.model.problem import PlanningProblem, PlanResult, path_cost
 
 __all__ = ["GOAL_EPSILON", "RRT"]
@@ -62,6 +63,7 @@ class RRT:
         tree = SearchTree.rooted_at(problem.start)
         index = NearestNeighbourIndex(problem.dimension)
         index.add(problem.start)
+        checker = CountingChecker(problem.obstacles)
 
         goal_index: int | None = None
         iterations = 0
@@ -73,7 +75,7 @@ class RRT:
             nearest = index.nearest(target)
             origin = tree.configurations[nearest]
             candidate = steer(origin, target, self.step_size)
-            if not problem.obstacles.segment_is_free(origin, candidate):
+            if not checker.segment_is_free(origin, candidate):
                 continue
 
             step = float(np.linalg.norm(candidate - origin))
@@ -82,7 +84,7 @@ class RRT:
             new_index = tree.add_node(candidate, nearest, tree.costs[nearest] + step)
             index.add(candidate)
 
-            goal_index = self._try_goal(problem, tree, new_index)
+            goal_index = self._try_goal(problem, checker, tree, new_index)
             if goal_index is not None:
                 break
 
@@ -94,6 +96,8 @@ class RRT:
                 success=False,
                 node_count=tree.size,
                 iterations=iterations,
+                point_checks=checker.point_checks,
+                segment_checks=checker.segment_checks,
                 tree=tree,
             )
 
@@ -108,12 +112,18 @@ class RRT:
             cost=cost,
             node_count=tree.size,
             iterations=iterations,
+            point_checks=checker.point_checks,
+            segment_checks=checker.segment_checks,
             cost_history=((iterations, cost),),
             tree=tree,
         )
 
     def _try_goal(
-        self, problem: PlanningProblem, tree: SearchTree, new_index: int
+        self,
+        problem: PlanningProblem,
+        checker: CountingChecker,
+        tree: SearchTree,
+        new_index: int,
     ) -> int | None:
         """Return the goal vertex index when the goal is reachable from ``new_index``."""
         candidate = tree.configurations[new_index]
@@ -122,6 +132,6 @@ class RRT:
             return new_index
         if distance > self.step_size:
             return None
-        if not problem.obstacles.segment_is_free(candidate, problem.goal):
+        if not checker.segment_is_free(candidate, problem.goal):
             return None
         return tree.add_node(problem.goal, new_index, tree.costs[new_index] + distance)

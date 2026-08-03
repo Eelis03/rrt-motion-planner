@@ -103,6 +103,26 @@ class TestBenchmarkRunner:
             assert trace.iterations > 0
             assert (trace.path_length >= 2) == trace.success
 
+    def test_records_carry_the_collision_check_counts(
+        self, blocked_problem: PlanningProblem
+    ) -> None:
+        traces = run_benchmark(
+            (RRT(max_samples=400, step_size=0.6), PRM(milestones=120, neighbours=6)),
+            (blocked_problem,),
+            repeats=2,
+            base_seed=0,
+        )
+        for record in traces:
+            assert record.segment_checks > 0
+            assert record.collision_checks == record.point_checks + record.segment_checks
+            # A tree planner never tests a configuration on its own: it only ever asks
+            # whether an extension is admissible. A roadmap rejects sampled milestones
+            # by point query before it connects anything.
+            if record.planner == "RRT":
+                assert record.point_checks == 0
+            else:
+                assert record.point_checks >= 120
+
     def test_failure_is_recorded_with_an_infinite_cost(
         self, sealed_problem: PlanningProblem
     ) -> None:
@@ -149,6 +169,8 @@ class TestTracePersistence:
                 cost=math.inf,
                 node_count=12,
                 iterations=300,
+                point_checks=0,
+                segment_checks=298,
                 wall_time_s=0.5,
                 path_length=0,
             ),

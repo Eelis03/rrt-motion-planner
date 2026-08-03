@@ -22,7 +22,16 @@ REDUCED_ARGUMENTS = {
     "plan_single_query.py": ["--problem", "cluttered", "--samples", "400", "--milestones", "120"],
     "run_benchmark.py": ["--repeats", "2", "--samples", "300", "--milestones", "100"],
     "export_viz_trace.py": ["--samples", "300", "--milestones", "100"],
+    "make_figures.py": ["--samples", "300", "--milestones", "100"],
 }
+
+# The figures committed under docs/figures are snapshots, not build output, so nothing
+# regenerates them during a test run and nothing compares them byte for byte: identical
+# planning produces PNG bytes that differ between matplotlib builds and platforms. What
+# is checked here is that the command in the README still runs and still writes them,
+# and that what is committed fits the budget the portfolio applies to every repository.
+PUBLISHED_FIGURES = REPOSITORY_ROOT / "docs" / "figures"
+FIGURE_BUDGET_BYTES = 250 * 1024
 
 
 def example_scripts() -> list[Path]:
@@ -54,6 +63,26 @@ def test_example_runs_to_completion(script: Path, tmp_path: Path) -> None:
     assert completed.returncode == 0, completed.stderr
     assert completed.stdout.strip()
     assert list((tmp_path / script.stem).iterdir())
+
+
+class TestPublishedFigures:
+    """The committed snapshots exist and stay inside the size budget."""
+
+    def test_every_figure_named_by_the_generator_is_committed(self) -> None:
+        source = (EXAMPLES / "make_figures.py").read_text(encoding="utf-8")
+        expected = {name for name in source.split('"') if name.endswith(".png")}
+        assert expected, "the generator names no output files"
+        assert {path.name for path in PUBLISHED_FIGURES.glob("*.png")} == expected
+
+    def test_the_committed_figures_fit_the_budget(self) -> None:
+        sizes = [path.stat().st_size for path in PUBLISHED_FIGURES.glob("*.png")]
+        assert all(size > 0 for size in sizes)
+        assert sum(sizes) <= FIGURE_BUDGET_BYTES
+
+    def test_the_readme_embeds_every_committed_figure(self) -> None:
+        readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
+        for path in PUBLISHED_FIGURES.glob("*.png"):
+            assert f"docs/figures/{path.name}" in readme, path.name
 
 
 def test_help_is_available_for_every_example() -> None:

@@ -96,6 +96,11 @@ class PlanResult:
     ``tree`` and ``roadmap`` expose the structure the planner built. They are kept
     so that the visualisation exporter and the convergence figures can read it, and
     are ignored by the benchmark metrics.
+
+    ``point_checks`` and ``segment_checks`` count the collision queries the run
+    asked. They are the machine-independent measure of planner effort, so unlike
+    wall time they can be recorded, compared across platforms, and regression
+    tested exactly.
     """
 
     planner: str
@@ -106,6 +111,8 @@ class PlanResult:
     cost: float = math.inf
     node_count: int = 0
     iterations: int = 0
+    point_checks: int = 0
+    segment_checks: int = 0
     cost_history: tuple[tuple[int, float], ...] = ()
     rewires: tuple[tuple[int, int, int], ...] = ()
     tree: SearchTree | None = field(default=None, repr=False)
@@ -116,3 +123,10 @@ class PlanResult:
             raise ValueError("a successful result must carry a path of at least two points")
         if not self.success and math.isfinite(self.cost):
             raise ValueError("a failed result must carry an infinite cost")
+        if self.point_checks < 0 or self.segment_checks < 0:
+            raise ValueError("collision check counts cannot be negative")
+
+    @property
+    def collision_checks(self) -> int:
+        """Total collision queries the run asked, of either kind."""
+        return self.point_checks + self.segment_checks

@@ -21,7 +21,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 from rrt_planner.model.graph import Roadmap
-from rrt_planner.model.obstacles import ObstacleSet
+from rrt_planner.model.obstacles import CollisionChecker, CountingChecker
 from rrt_planner.model.problem import PlanningProblem, PlanResult, path_cost
 from rrt_planner.model.space import ConfigurationSpace, Vector
 
@@ -60,13 +60,17 @@ class PRM:
         return "PRM"
 
     def build(
-        self, space: ConfigurationSpace, obstacles: ObstacleSet, seed: int
+        self, space: ConfigurationSpace, obstacles: CollisionChecker, seed: int
     ) -> tuple[Roadmap, int]:
         """Build a roadmap over the free part of ``space``.
 
         Returns the roadmap and the number of samples drawn, including the rejected
         ones, so that the caller can report the sampling effort separately from the
         number of milestones that survived.
+
+        ``obstacles`` is any collision checker, so a caller that wants the queries
+        counted passes a :class:`~rrt_planner.model.obstacles.CountingChecker` and a
+        caller that does not passes the obstacle set itself.
         """
         rng = np.random.default_rng(seed)
         roadmap = Roadmap()
@@ -80,7 +84,7 @@ class PRM:
         self._connect(roadmap, obstacles)
         return roadmap, attempts
 
-    def _connect(self, roadmap: Roadmap, obstacles: ObstacleSet) -> None:
+    def _connect(self, roadmap: Roadmap, obstacles: CollisionChecker) -> None:
         """Add every admissible edge between milestones already in ``roadmap``."""
         if roadmap.size < 2:
             return
@@ -118,7 +122,7 @@ class PRM:
     def query(
         self,
         roadmap: Roadmap,
-        obstacles: ObstacleSet,
+        obstacles: CollisionChecker,
         start: Vector,
         goal: Vector,
     ) -> tuple[tuple[Vector, ...], float]:
@@ -144,7 +148,7 @@ class PRM:
     def _attach(
         self,
         augmented: Roadmap,
-        obstacles: ObstacleSet,
+        obstacles: CollisionChecker,
         milestone_count: int,
         index: int,
         configuration: Vector,
@@ -167,8 +171,9 @@ class PRM:
 
     def plan(self, problem: PlanningProblem, seed: int) -> PlanResult:
         """Build a roadmap for ``problem`` and answer its single query."""
-        roadmap, attempts = self.build(problem.space, problem.obstacles, seed)
-        path, _ = self.query(roadmap, problem.obstacles, problem.start, problem.goal)
+        checker = CountingChecker(problem.obstacles)
+        roadmap, attempts = self.build(problem.space, checker, seed)
+        path, _ = self.query(roadmap, checker, problem.start, problem.goal)
         if not path:
             return PlanResult(
                 planner=self.name,
@@ -177,6 +182,8 @@ class PRM:
                 success=False,
                 node_count=roadmap.size,
                 iterations=attempts,
+                point_checks=checker.point_checks,
+                segment_checks=checker.segment_checks,
                 roadmap=roadmap,
             )
         exact_cost = path_cost(path)
@@ -189,6 +196,8 @@ class PRM:
             cost=exact_cost,
             node_count=roadmap.size,
             iterations=attempts,
+            point_checks=checker.point_checks,
+            segment_checks=checker.segment_checks,
             cost_history=((attempts, exact_cost),),
             roadmap=roadmap,
         )

@@ -27,7 +27,13 @@ __all__ = ["RunTrace", "load_traces", "run_benchmark", "save_traces", "seeds_for
 
 @dataclass(frozen=True, slots=True)
 class RunTrace:
-    """The structured record of one planner run."""
+    """The structured record of one planner run.
+
+    Every field except ``wall_time_s`` is fixed by the seed, so the whole record is
+    comparable across machines. The collision check counts are the effort measure
+    that has that property, which is why they are recorded alongside wall time
+    rather than instead of the node count.
+    """
 
     planner: str
     problem: str
@@ -36,8 +42,15 @@ class RunTrace:
     cost: float
     node_count: int
     iterations: int
+    point_checks: int
+    segment_checks: int
     wall_time_s: float
     path_length: int
+
+    @property
+    def collision_checks(self) -> int:
+        """Total collision queries the run asked, of either kind."""
+        return self.point_checks + self.segment_checks
 
 
 def seeds_for(repeats: int, base_seed: int) -> tuple[int, ...]:
@@ -85,6 +98,8 @@ def _run_once(planner: Planner, problem: PlanningProblem, seed: int) -> RunTrace
         cost=result.cost,
         node_count=result.node_count,
         iterations=result.iterations,
+        point_checks=result.point_checks,
+        segment_checks=result.segment_checks,
         wall_time_s=elapsed,
         path_length=len(result.path),
     )
@@ -116,6 +131,8 @@ def load_traces(path: Path) -> tuple[RunTrace, ...]:
                 cost=cost,
                 node_count=int(record["node_count"]),
                 iterations=int(record["iterations"]),
+                point_checks=int(record["point_checks"]),
+                segment_checks=int(record["segment_checks"]),
                 wall_time_s=float(record["wall_time_s"]),
                 path_length=int(record["path_length"]),
             )

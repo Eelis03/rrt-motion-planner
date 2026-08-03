@@ -7,13 +7,17 @@ segment that only touches a boundary is a collision.
 
 from __future__ import annotations
 
+from itertools import pairwise
+
 import numpy as np
 import pytest
 
 from rrt_planner.model.obstacles import (
     Box,
     Circle,
+    CollisionChecker,
     ConvexPolygon,
+    CountingChecker,
     ObstacleSet,
     halfspaces_intersect_segment,
 )
@@ -236,3 +240,52 @@ class TestObstacleSet:
                     Circle(center=vector(0.0, 0.0, 0.0), radius=1.0),
                 )
             )
+
+
+class TestCountingChecker:
+    """The counter records queries without changing any answer."""
+
+    obstacles = ObstacleSet((Circle(center=vector(0.0, 0.0), radius=1.0),))
+
+    def test_a_fresh_counter_has_asked_nothing(self) -> None:
+        checker = CountingChecker(self.obstacles)
+        assert (checker.point_checks, checker.segment_checks, checker.total_checks) == (0, 0, 0)
+
+    def test_each_query_advances_only_its_own_counter(self) -> None:
+        checker = CountingChecker(self.obstacles)
+        checker.is_free(vector(5.0, 5.0))
+        assert (checker.point_checks, checker.segment_checks) == (1, 0)
+        checker.segment_is_free(vector(-5.0, 5.0), vector(5.0, 5.0))
+        checker.segment_is_free(vector(-5.0, 0.0), vector(5.0, 0.0))
+        assert (checker.point_checks, checker.segment_checks) == (1, 2)
+        assert checker.total_checks == 3
+
+    def test_answers_agree_with_the_obstacle_set_it_wraps(self) -> None:
+        checker = CountingChecker(self.obstacles)
+        cases = (vector(0.0, 0.0), vector(1.0, 0.0), vector(2.0, 0.0))
+        for point in cases:
+            assert checker.is_free(point) == self.obstacles.is_free(point)
+        for first, second in pairwise(cases):
+            assert checker.segment_is_free(first, second) == self.obstacles.segment_is_free(
+                first, second
+            )
+        assert checker.obstacles is self.obstacles
+
+    def test_a_rejected_query_counts_the_same_as_an_accepted_one(self) -> None:
+        # Effort is what is being measured, so a query that finds a collision is a
+        # query that was paid for.
+        checker = CountingChecker(self.obstacles)
+        assert checker.segment_is_free(vector(-5.0, 0.0), vector(5.0, 0.0)) is False
+        assert checker.segment_is_free(vector(-5.0, 5.0), vector(5.0, 5.0)) is True
+        assert checker.segment_checks == 2
+
+    def test_counters_are_independent_between_instances(self) -> None:
+        first = CountingChecker(self.obstacles)
+        second = CountingChecker(self.obstacles)
+        first.segment_is_free(vector(-5.0, 5.0), vector(5.0, 5.0))
+        assert first.segment_checks == 1
+        assert second.segment_checks == 0
+
+    def test_both_an_obstacle_set_and_a_counter_satisfy_the_protocol(self) -> None:
+        assert isinstance(self.obstacles, CollisionChecker)
+        assert isinstance(CountingChecker(self.obstacles), CollisionChecker)

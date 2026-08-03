@@ -89,8 +89,12 @@ def _draw_structure(axes: Axes, result: PlanResult) -> None:
             ((float(points[a][0]), float(points[a][1])), (float(points[b][0]), float(points[b][1])))
             for a, b in result.roadmap.edges()
         ]
+    # Solid rather than semi-transparent: where a tree is dense, overlapping strokes at
+    # partial opacity blend into a single dark mass and stop showing the branching that
+    # is the point of drawing the structure at all. A light solid tone keeps the tree
+    # behind the path and keeps the number of distinct tones in the image small.
     for (x0, y0), (x1, y1) in segments:
-        axes.plot([x0, x1], [y0, y1], color="tab:blue", linewidth=0.4, alpha=0.5, zorder=1)
+        axes.plot([x0, x1], [y0, y1], color="#8fb8dc", linewidth=0.3, zorder=1)
 
 
 def solution_figure(
@@ -142,12 +146,12 @@ def convergence_figure(results: Sequence[PlanResult]) -> Figure:
 
 
 def summary_figure(summaries: Sequence[Summary]) -> Figure:
-    """Draw grouped bars for success rate, mean cost, and mean wall time."""
+    """Draw grouped bars for success rate, cost, collision checks, and wall time."""
     problems = list(dict.fromkeys(summary.problem for summary in summaries))
     planners = list(dict.fromkeys(summary.planner for summary in summaries))
     lookup = {(s.problem, s.planner): s for s in summaries}
 
-    figure, axes_row = plt.subplots(1, 3, figsize=(13.5, 4.2))
+    figure, axes_row = plt.subplots(1, 4, figsize=(17.5, 4.2))
     positions = np.arange(len(problems), dtype=float)
     width = 0.8 / max(len(planners), 1)
 
@@ -155,6 +159,11 @@ def summary_figure(summaries: Sequence[Summary]) -> Figure:
     panels = (
         ("success rate", lambda summary: summary.success_rate, None),
         ("mean path cost", lambda summary: summary.cost_mean, lambda summary: summary.cost_std),
+        (
+            "mean collision checks",
+            lambda summary: summary.collision_check_mean,
+            lambda summary: summary.collision_check_std,
+        ),
         (
             "mean wall time (s)",
             lambda summary: summary.wall_time_mean,

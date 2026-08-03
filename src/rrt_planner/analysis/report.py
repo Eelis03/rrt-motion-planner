@@ -17,6 +17,8 @@ _HEADERS = (
     "Cost sd",
     "Nodes mean",
     "Nodes sd",
+    "Checks mean",
+    "Checks sd",
     "Time mean (s)",
     "Time sd (s)",
 )
@@ -39,6 +41,8 @@ def format_summary_table(summaries: Sequence[Summary]) -> str:
             _number(summary.cost_std, 2),
             _number(summary.node_count_mean, 1),
             _number(summary.node_count_std, 1),
+            _number(summary.collision_check_mean, 0),
+            _number(summary.collision_check_std, 0),
             _number(summary.wall_time_mean, 3),
             _number(summary.wall_time_std, 3),
         )

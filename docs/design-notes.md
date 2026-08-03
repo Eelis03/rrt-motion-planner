@@ -117,7 +117,9 @@ is read from a global random state, no planner mutates itself during a run, and 
 benchmark gives every planner the same seed sequence so that the comparison is paired.
 Determinism is what makes the regression tier possible at all, and it is checked directly:
 a test compares two runs of the same seed vertex by vertex, parent by parent, and cost by
-cost, rather than comparing summary numbers that could agree by accident.
+cost, rather than comparing summary numbers that could agree by accident. The collision
+check counts inherit the same property, which is what allows them to be pinned exactly
+rather than within a tolerance.
 
 ## Rejected alternatives
 
@@ -186,6 +188,56 @@ network access and no package installation. It compiles to one classic script wi
 `module: none` and `outFile`, and the compiled bundle is committed, so the page needs
 nothing but a static file server.
 
+## Closed limitations
+
+### Collision checks are counted and reported
+
+This was recorded below as a limitation. The benchmark measured planner effort in wall
+time, which is a property of the machine that ran it, and in node counts, which describe
+the structure a planner built rather than the work it did to build it. Collision checks
+are the machine-independent measure the literature reports, and they were not counted.
+
+They are now. `CollisionChecker` in `model/obstacles.py` is the protocol through which a
+planner asks its two questions, `ObstacleSet` implements it directly, and
+`CountingChecker` wraps an obstacle set and records what was asked. Each planner
+constructs one counter per run and reports `point_checks` and `segment_checks` on the
+`PlanResult`; the benchmark carries both into `RunTrace`; the table gained a `Checks
+mean` and a `Checks sd` column. The two kinds are counted apart because the planners do
+not use them in the same proportion: a tree planner asks nothing but segment queries,
+while a roadmap tests every drawn sample for freedom before it tests a single edge.
+
+What it cost:
+
+- One object per run and one attribute increment per query. The counter touches no
+  geometry, so the arithmetic underneath is unchanged, and every cost and node count in
+  `tests/data/reference_benchmark.json` stayed where it was when the counter was
+  introduced. That is the evidence that the wrapper is transparent rather than an
+  assertion that it is.
+- Four private methods changed signature. `RRT._try_goal`, `RRTStar._choose_parent`,
+  `RRTStar._rewire` and `RRTStar._connect_goal` now take the checker instead of the
+  problem, which is honest about what they were using the problem for.
+- Two public signatures widened. `PRM.build` and `PRM.query` accept any
+  `CollisionChecker` where they previously named `ObstacleSet`. A widening breaks no
+  caller, and a caller that wants no counting still passes the obstacle set itself.
+- The obstacle set stayed frozen, which was the point of putting the counter outside it.
+  A counter inside `ObstacleSet` was rejected: the benchmark shares one problem object
+  across every run of every planner, so a count living in the obstacles would be a count
+  of the whole benchmark, and resetting it between runs would make the obstacle set
+  mutable in precisely the way the rest of this design avoids.
+
+What it bought beyond a column in the table: the counts are fixed by the seed and by
+nothing else, so the regression tier now pins them exactly, next to the node counts. A
+change to parent selection or to the rewiring test that happened to leave the returned
+path unchanged would have passed that tier before. It does not now.
+
+What remains: wall time is still reported and is still machine-specific. It is kept
+rather than replaced, because a collision check is not equally expensive on every
+problem. RRT star asks 9687 checks on `polygon_field` and 8649 on `cube_3d`, within
+twelve percent of each other, and spends 1.912 seconds against 0.848. A convex polygon
+rebuilds its half-space representation on every query, while a box in three dimensions
+has six fixed planes. The two columns answer different questions and neither one
+replaces the other.
+
 ## Known limitations
 
 - **Straight-line motion only.** An edge is a straight segment in configuration space, so
@@ -208,12 +260,16 @@ nothing but a static file server.
   inflates the near-neighbour radius and wastes collision checks. Estimating the free
   measure from the rejection rate during sampling would fix it, at the cost of making the
   radius depend on the run.
-- **The benchmark reports wall time, which is machine-specific.** Collision checks are the
-  machine-independent measure of planner effort and are the standard reported quantity in
-  the literature. They are not counted here, because counting them means a mutable counter
-  inside a frozen obstacle set or a wrapper around it, and the table already reports node
-  counts. The recorded reference in `tests/data/reference_benchmark.json` stores wall time
-  as zero for the same reason, so that nothing invites comparison against it.
+- **Wall time is still machine-specific.** Collision checks are now reported beside it and
+  are the portable measure, but the table keeps a wall time column that cannot be compared
+  against a run on another machine. The recorded reference in
+  `tests/data/reference_benchmark.json` stores wall time as zero, so that nothing in the
+  file invites that comparison, while every other field in it is compared exactly.
+- **A collision check is not a unit of time.** The count is portable and the cost of one
+  count is not. Half-space representations are rebuilt on each query rather than cached in
+  the obstacle, so a polygon-heavy problem pays more per check than a box-heavy one.
+  Caching the half-spaces on the obstacle would narrow the gap and is the obvious next
+  thing to measure.
 - **The visualisation is planar.** `trace_document` rejects a problem that is not two
   dimensional. The three dimensional problem appears in the benchmark but not in the
   browser animation.

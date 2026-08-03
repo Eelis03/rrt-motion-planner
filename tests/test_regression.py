@@ -10,6 +10,11 @@ Wall time is not compared: it is the one recorded quantity that depends on the m
 Costs are compared with a relative tolerance of ``1e-6``, which absorbs the last-place
 floating point differences between platforms while remaining far tighter than any real
 change in planner behaviour, and discrete counts are compared exactly.
+
+The collision check counts are compared exactly for the same reason as the node counts.
+They are fixed by the seed and by nothing else, so they are the tightest description of
+planner effort this tier can pin, and a change to parent selection or to rewiring that
+left the returned path alone would still move them.
 """
 
 from __future__ import annotations
@@ -91,6 +96,19 @@ class TestReferenceFile:
         successes = {record["planner"] for record in load_reference() if record["success"]}
         assert successes == {"RRT", "RRT star", "PRM"}
 
+    def test_every_record_carries_a_collision_check_count(self) -> None:
+        for record in load_reference():
+            assert int(record["segment_checks"]) > 0
+            assert int(record["point_checks"]) >= 0
+            assert record["wall_time_s"] == 0.0
+
+    def test_the_recorded_run_is_repeatable_in_its_check_counts(self) -> None:
+        recorded = load_reference()
+        produced = reference_traces()
+        assert [(t.point_checks, t.segment_checks) for t in produced] == [
+            (int(r["point_checks"]), int(r["segment_checks"])) for r in recorded
+        ]
+
 
 class TestRegression:
     """The current code reproduces the recorded numbers."""
@@ -109,6 +127,8 @@ class TestRegression:
             assert actual.node_count == expected["node_count"], label
             assert actual.iterations == expected["iterations"], label
             assert actual.path_length == expected["path_length"], label
+            assert actual.point_checks == expected["point_checks"], label
+            assert actual.segment_checks == expected["segment_checks"], label
             if expected["cost"] is None:
                 assert math.isinf(actual.cost), label
             else:

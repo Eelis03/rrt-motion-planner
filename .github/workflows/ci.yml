@@ -29,8 +29,12 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
+      # The floor is the measured figure rounded down and reduced by two, so that a
+      # small platform difference in which branches run does not fail the build while a
+      # real drop in coverage still does. The viz job below runs no Python and carries
+      # no coverage flag.
       - name: Run tests
-        run: uv run pytest -q
+        run: uv run pytest -q --cov=src/rrt_planner --cov-report=term-missing --cov-fail-under=94
 
       - name: Lint
         run: uv run ruff check .

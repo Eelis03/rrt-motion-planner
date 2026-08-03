@@ -11,7 +11,8 @@ import pytest
 from rrt_planner.algorithm import PRM, RRT, RRTStar
 from rrt_planner.algorithm.base import Planner
 from rrt_planner.model.graph import NO_PARENT
-from rrt_planner.model.problem import PlanningProblem, path_cost
+from rrt_planner.model.obstacles import CountingChecker
+from rrt_planner.model.problem import PlanningProblem, PlanResult, path_cost
 
 
 def assert_path_is_admissible(problem: PlanningProblem, path: tuple[np.ndarray, ...]) -> None:
@@ -170,6 +171,86 @@ class TestRoadmap:
         result = prm.plan(blocked_problem, seed=12)
         assert result.success is True
         assert_path_is_admissible(blocked_problem, result.path)
+
+
+class TestCollisionAccounting:
+    """Every planner reports the collision queries it asked."""
+
+    def test_a_result_reports_the_queries_that_built_it(
+        self, planner: Planner, blocked_problem: PlanningProblem
+    ) -> None:
+        result = planner.plan(blocked_problem, seed=20)
+        assert result.point_checks >= 0
+        assert result.segment_checks > 0
+        assert result.collision_checks == result.point_checks + result.segment_checks
+        # Every vertex beyond the root was admitted by at least one segment query, so
+        # the count can never be smaller than the structure it produced.
+        assert result.segment_checks >= result.node_count - 1
+
+    def test_a_tree_planner_asks_at_most_two_segment_queries_per_iteration(
+        self, blocked_problem: PlanningProblem
+    ) -> None:
+        # One for the extension, one for the attempt to reach the goal from it.
+        result = RRT(max_samples=500, step_size=0.6).plan(blocked_problem, seed=21)
+        assert result.point_checks == 0
+        assert result.segment_checks <= 2 * result.iterations
+
+    def test_rewiring_is_what_the_extra_queries_are_spent_on(
+        self, sealed_problem: PlanningProblem
+    ) -> None:
+        # The sealed problem has no solution, so both planners spend the whole budget
+        # and the counts are comparable. RRT star pays for parent selection and
+        # rewiring on top of the single extension query RRT makes.
+        budget = 400
+        feasible = RRT(max_samples=budget, step_size=0.6).plan(sealed_problem, seed=22)
+        optimal = RRTStar(max_samples=budget, step_size=0.6).plan(sealed_problem, seed=22)
+        assert feasible.iterations == optimal.iterations == budget
+        assert optimal.segment_checks > feasible.segment_checks
+
+    def test_a_roadmap_tests_every_sample_before_it_tests_any_edge(
+        self, blocked_problem: PlanningProblem
+    ) -> None:
+        prm = PRM(milestones=150, neighbours=6)
+        result = prm.plan(blocked_problem, seed=23)
+        assert result.roadmap is not None
+        assert result.point_checks >= result.roadmap.size
+        assert result.point_checks == result.iterations
+        assert result.segment_checks >= result.roadmap.edge_count
+
+    def test_counting_does_not_change_what_the_roadmap_becomes(
+        self, blocked_problem: PlanningProblem
+    ) -> None:
+        prm = PRM(milestones=150, neighbours=6)
+        plain, plain_attempts = prm.build(
+            blocked_problem.space, blocked_problem.obstacles, seed=24
+        )
+        counter = CountingChecker(blocked_problem.obstacles)
+        counted, counted_attempts = prm.build(blocked_problem.space, counter, seed=24)
+        assert plain_attempts == counted_attempts
+        assert plain.edges() == counted.edges()
+        for left, right in zip(plain.configurations, counted.configurations, strict=True):
+            assert np.array_equal(left, right)
+        assert counter.total_checks > 0
+
+    def test_the_counts_are_fixed_by_the_seed(
+        self, planner: Planner, blocked_problem: PlanningProblem
+    ) -> None:
+        first = planner.plan(blocked_problem, seed=25)
+        second = planner.plan(blocked_problem, seed=25)
+        assert (first.point_checks, first.segment_checks) == (
+            second.point_checks,
+            second.segment_checks,
+        )
+
+    def test_a_result_rejects_a_negative_count(self) -> None:
+        with pytest.raises(ValueError, match="negative"):
+            PlanResult(
+                planner="RRT",
+                problem="blocked",
+                seed=0,
+                success=False,
+                segment_checks=-1,
+            )
 
 
 class TestConfigurationValidation:
