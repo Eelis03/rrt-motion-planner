@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -14,8 +15,8 @@ from rrt_planner.analysis.figures import (
     solution_figure,
     summary_figure,
 )
-from rrt_planner.analysis.metrics import mean_and_deviation, summarise
-from rrt_planner.analysis.report import format_summary_table
+from rrt_planner.analysis.metrics import compare_paired, mean_and_deviation, summarise
+from rrt_planner.analysis.report import format_paired_table, format_summary_table
 from rrt_planner.model.problem import PlanningProblem
 from rrt_planner.pipeline.benchmark import RunTrace, run_benchmark
 
@@ -121,6 +122,100 @@ class TestSummarise:
         assert record.collision_checks == 1043
 
 
+class TestComparePaired:
+    """The seed-by-seed comparison the shared seed sequence makes available."""
+
+    def test_differences_are_taken_seed_by_seed(self) -> None:
+        # Per-seed differences 1, 3 and -1, so the mean is 1 and the squared deviations
+        # are 0 + 4 + 4 over n - 1 = 2. The first planner is dearer on average and
+        # cheaper on one seed of the three, which the two counts report separately.
+        traces = [
+            trace("RRT star", "a", 0, True, 10.0),
+            trace("RRT star", "a", 1, True, 20.0),
+            trace("RRT star", "a", 2, True, 30.0),
+            trace("PRM", "a", 0, True, 9.0),
+            trace("PRM", "a", 1, True, 17.0),
+            trace("PRM", "a", 2, True, 31.0),
+        ]
+        comparison = compare_paired(traces, "RRT star", "PRM")[0]
+        assert (comparison.planner_a, comparison.planner_b) == ("RRT star", "PRM")
+        assert comparison.seeds == 3
+        assert comparison.both_succeeded == 3
+        assert comparison.cost_difference_mean == pytest.approx(1.0)
+        assert comparison.cost_difference_std == pytest.approx(2.0)
+        assert (comparison.a_cheaper, comparison.b_cheaper) == (1, 2)
+
+    def test_only_a_seed_both_planners_solved_enters_the_cost_difference(self) -> None:
+        traces = [
+            trace("RRT", "a", 0, True, 10.0),
+            trace("RRT", "a", 1, True, 20.0),
+            trace("RRT", "a", 2, False, math.inf),
+            trace("PRM", "a", 0, True, 8.0),
+            trace("PRM", "a", 1, False, math.inf),
+            trace("PRM", "a", 2, True, 15.0),
+        ]
+        comparison = compare_paired(traces, "RRT", "PRM")[0]
+        assert comparison.seeds == 3
+        assert comparison.both_succeeded == 1
+        assert (comparison.a_only_succeeded, comparison.b_only_succeeded) == (1, 1)
+        assert comparison.cost_difference_mean == pytest.approx(2.0)
+        assert comparison.cost_difference_std == 0.0
+
+    def test_a_seed_neither_planner_solved_is_counted_and_not_averaged(self) -> None:
+        traces = [
+            trace("RRT", "a", 0, False, math.inf),
+            trace("PRM", "a", 0, False, math.inf),
+        ]
+        comparison = compare_paired(traces, "RRT", "PRM")[0]
+        assert comparison.neither_succeeded == 1
+        assert math.isnan(comparison.cost_difference_mean)
+        assert math.isnan(comparison.cost_difference_std)
+        assert (comparison.a_cheaper, comparison.b_cheaper) == (0, 0)
+
+    def test_check_differences_include_the_seeds_that_failed(self) -> None:
+        # Seed 0 asks 10 + 1000 against 10 + 900, a difference of 100. Seed 1 fails for
+        # both planners and asks 20 + 1001 against 20 + 800, a difference of 201.
+        traces = [
+            trace("RRT", "a", 0, True, 10.0),
+            trace("RRT", "a", 1, False, math.inf),
+            replace(trace("PRM", "a", 0, True, 9.0), segment_checks=900),
+            replace(trace("PRM", "a", 1, False, math.inf), segment_checks=800),
+        ]
+        comparison = compare_paired(traces, "RRT", "PRM")[0]
+        assert comparison.both_succeeded == 1
+        assert comparison.check_difference_mean == pytest.approx(150.5)
+        assert comparison.check_difference_std == pytest.approx(math.sqrt(2.0 * 50.5**2))
+
+    def test_a_seed_only_one_planner_ran_is_not_compared(self) -> None:
+        traces = [
+            trace("RRT", "a", 0, True, 10.0),
+            trace("RRT", "a", 1, True, 20.0),
+            trace("PRM", "a", 1, True, 18.0),
+            trace("PRM", "a", 2, True, 12.0),
+        ]
+        comparison = compare_paired(traces, "RRT", "PRM")[0]
+        assert comparison.seeds == 1
+        assert comparison.cost_difference_mean == pytest.approx(2.0)
+
+    def test_problems_keep_first_seen_order_and_need_a_shared_seed(self) -> None:
+        traces = [
+            trace("RRT", "b", 0, True, 10.0),
+            trace("PRM", "b", 0, True, 9.0),
+            trace("RRT", "a", 0, True, 10.0),
+            trace("PRM", "a", 0, True, 9.0),
+            trace("RRT", "c", 0, True, 10.0),
+        ]
+        assert [c.problem for c in compare_paired(traces, "RRT", "PRM")] == ["b", "a"]
+
+    def test_one_planner_cannot_be_compared_with_itself(self) -> None:
+        with pytest.raises(ValueError, match="two different planners"):
+            compare_paired([trace("RRT", "a", 0, True, 10.0)], "RRT", "RRT")
+
+    def test_a_planner_absent_from_the_traces_is_rejected(self) -> None:
+        with pytest.raises(ValueError, match="no runs recorded"):
+            compare_paired([trace("RRT", "a", 0, True, 10.0)], "RRT", "PRM")
+
+
 class TestReport:
     """The Markdown table pasted into the README."""
 
@@ -144,6 +239,39 @@ class TestReport:
 
     def test_an_empty_input_still_renders_a_header(self) -> None:
         lines = format_summary_table([]).splitlines()
+        assert len(lines) == 2
+
+    def test_the_paired_table_has_one_row_per_problem_compared(self) -> None:
+        comparisons = compare_paired(
+            [
+                trace("RRT star", "a", 0, True, 10.0),
+                trace("PRM", "a", 0, True, 12.5),
+                trace("RRT star", "b", 0, True, 10.0),
+                trace("PRM", "b", 0, True, 9.0),
+            ],
+            "RRT star",
+            "PRM",
+        )
+        lines = format_paired_table(comparisons).splitlines()
+        assert len(lines) == 4
+        assert lines[0].startswith("| Problem")
+        assert set(lines[1]) <= {"|", "-", " "}
+        assert "-2.50" in lines[2]
+        assert "1.00" in lines[3]
+
+    def test_the_paired_table_writes_an_undefined_difference_as_not_available(self) -> None:
+        comparisons = compare_paired(
+            [
+                trace("RRT", "a", 0, False, math.inf),
+                trace("PRM", "a", 0, True, 12.0),
+            ],
+            "RRT",
+            "PRM",
+        )
+        assert "n/a" in format_paired_table(comparisons)
+
+    def test_an_empty_paired_input_still_renders_a_header(self) -> None:
+        lines = format_paired_table([]).splitlines()
         assert len(lines) == 2
 
 

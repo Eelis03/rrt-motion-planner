@@ -13,8 +13,8 @@ from pathlib import Path
 
 from rrt_planner.algorithm import PRM, RRT, RRTStar
 from rrt_planner.analysis.figures import convergence_figure, save_figure, summary_figure
-from rrt_planner.analysis.metrics import summarise
-from rrt_planner.analysis.report import format_summary_table
+from rrt_planner.analysis.metrics import compare_paired, summarise
+from rrt_planner.analysis.report import format_paired_table, format_summary_table
 from rrt_planner.pipeline.benchmark import run_benchmark, save_traces
 from rrt_planner.pipeline.suite import standard_problems
 
@@ -53,6 +53,9 @@ def main() -> None:
     print(f"repeats: {arguments.repeats} seeds from {arguments.base_seed}")
     print()
     print(format_summary_table(summaries))
+    print()
+    print("paired differences per seed, RRT star minus PRM")
+    print(format_paired_table(compare_paired(traces, "RRT star", "PRM")))
 
     save_traces(arguments.output / "benchmark_traces.json", traces)
     save_figure(summary_figure(summaries), arguments.output / "benchmark_summary.png")

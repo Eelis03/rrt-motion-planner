@@ -121,6 +121,30 @@ cost, rather than comparing summary numbers that could agree by accident. The co
 check counts inherit the same property, which is what allows them to be pinned exactly
 rather than within a tolerance.
 
+### Differencing the runs, not only averaging them
+
+The benchmark hands every planner the same seed sequence, and the analysis layer used to
+throw the seed away: `summarise` groups by problem and planner and reports two means that
+a reader compares by eye. `compare_paired` keeps the seed and subtracts the runs, which
+answers what two means cannot, namely on how many of the ten seeds one planner was
+actually cheaper. On the empty square the means are 12.96 and 13.17 with deviations of
+0.07 and 0.20, and RRT star is nonetheless the cheaper of the two on all ten seeds.
+
+Costs are differenced only over the seeds both planners solved, since the cost of a failed
+run is not a number, and the seeds that this excludes are reported beside the difference
+rather than dropped. Two of the ten narrow passage seeds are solved by RRT star and not by
+PRM, so they cannot enter a difference of costs, and a mean that omitted them silently
+would credit PRM for exactly the runs it lost. Collision checks are differenced over every
+shared seed, because a failed run spends them too.
+
+The spread of a difference is not narrower than the spreads it came from, and was not
+expected to be. Two planners handed the same seed consume it differently, so their
+departures from the seed mean are uncorrelated and the difference deviation comes out at
+the quadrature sum: 0.21 on the empty square against `sqrt(0.07 ** 2 + 0.20 ** 2)`, which
+is 0.212. The shared sequence makes the comparison fair; it does not make it a paired
+experiment in the sense that would shrink the interval. What the differencing buys is the
+per-seed win count and the explicit account of the seeds one planner failed.
+
 ## Rejected alternatives
 
 ### Point sampling along edges for collision checking

@@ -75,6 +75,38 @@ in three dimensions holds few enough vertices that rewiring rarely finds an impr
 while the roadmap keeps connecting each milestone to ten neighbours whatever the
 dimension.
 
+### The same comparison, seed by seed
+
+Every planner saw the same ten seeds, so the runs can be differenced one seed at a time
+instead of compared as two means. Printed by the same command, for the pair whose means
+sit closest together:
+
+| Problem        | Planner A | Planner B | Seeds | Both | A only | B only | Cost diff mean | Cost diff sd | A cheaper | B cheaper | Checks diff mean |
+| -------------- | --------- | --------- | ----- | ---- | ------ | ------ | -------------- | ------------ | --------- | --------- | ---------------- |
+| empty          | RRT star  | PRM       | 10    | 10   | 0      | 0      | -0.21          | 0.21         | 10        | 0         | 8219             |
+| cluttered      | RRT star  | PRM       | 10    | 10   | 0      | 0      | -0.38          | 0.34         | 9         | 1         | 4988             |
+| narrow_passage | RRT star  | PRM       | 10    | 8    | 2      | 0      | -0.36          | 0.28         | 7         | 1         | 6352             |
+| maze           | RRT star  | PRM       | 10    | 10   | 0      | 0      | -0.97          | 0.89         | 10        | 0         | 4820             |
+| polygon_field  | RRT star  | PRM       | 10    | 10   | 0      | 0      | -0.26          | 0.22         | 10        | 0         | 6112             |
+| cube_3d        | RRT star  | PRM       | 10    | 10   | 0      | 0      | 0.57           | 0.29         | 0         | 10        | 5133             |
+
+A difference is RRT star minus PRM, so a negative cost is the cheaper RRT star path. Two
+things here are not in the means. On the empty square RRT star is cheaper on 10 seeds out
+of 10, which 12.96 with a deviation of 0.07 against 13.17 with 0.20 does not say; on the
+cube PRM is cheaper on 10 out of 10, so that reversal is not a near tie either. And the
+narrow passage row differences 8 seeds rather than 10, because the 2 seeds only RRT star
+solved have no PRM cost to subtract. PRM's 14.25 there is a mean over the seeds it did
+not fail on, which is the mean that flatters it most.
+
+What the shared seed does not buy is a narrower interval. A cost difference deviation
+comes out at about the quadrature sum of the two separate deviations, 0.21 against
+`sqrt(0.07 ** 2 + 0.20 ** 2) = 0.212` on the empty square, and between 0.89 and 1.05 times
+it on the other five. Two planners handed the same seed still consume it differently, so
+their departures from the seed mean are uncorrelated and differencing cancels nothing.
+The shared sequence makes the comparison fair; it does not make it a paired experiment in
+the sense that would shrink the spread. What differencing buys is the count of seeds each
+planner won and an explicit account of the seeds one of them failed.
+
 ### What else the table shows
 
 **Cost variance separates a feasible search from an optimal one.** RRT's cost deviation
@@ -214,7 +246,7 @@ annotations rather than against `Any`.
 
 | Command | What it produces |
 | --- | --- |
-| `uv run python examples/run_benchmark.py --repeats 10 --samples 3000` | The results table above, the trace JSON, and the summary figures. About 80 seconds. |
+| `uv run python examples/run_benchmark.py --repeats 10 --samples 3000` | The results table above, the paired table under it, the trace JSON, and the summary figures. About 80 seconds. |
 | `uv run python examples/plan_single_query.py --problem maze --samples 3000` | One problem solved by all three planners, with costs, node counts, and check counts. |
 | `uv run python examples/make_figures.py` | The three figures committed under `docs/figures/`. |
 | `uv run python examples/export_viz_trace.py` | The JSON traces read by the browser animation in `viz/`. |
@@ -255,8 +287,8 @@ uv run mypy
 uv run pytest --cov=src/rrt_planner --cov-report=term-missing
 ```
 
-196 tests run in about 30 seconds. Statement coverage of `src/rrt_planner` is 96 percent,
-1105 statements with 44 uncovered, reported by the fourth command as 96.02; CI runs that
+207 tests run in about 30 seconds. Statement coverage of `src/rrt_planner` is 96 percent,
+1153 statements with 44 uncovered, reported by the fourth command as 96.18; CI runs that
 command with `--cov-fail-under=94` in the Python test job, and nowhere else. The suite has three tiers: property and
 invariant tests covering the mathematics, regression tests pinning recorded behaviour,
 and integration tests running each script in `examples/` as a subprocess under a reduced
@@ -280,8 +312,8 @@ and knows nothing about planners; the algorithm layer draws nothing and writes n
 | `src/rrt_planner/pipeline/suite.py` | The six standard problems the benchmark reports. |
 | `src/rrt_planner/pipeline/benchmark.py` | The seeded runner and the `RunTrace` record it produces per run. |
 | `src/rrt_planner/pipeline/trace.py` | Export of one run to the JSON document the visualisation reads. |
-| `src/rrt_planner/analysis/metrics.py` | Aggregation of run traces into per-planner summaries. |
-| `src/rrt_planner/analysis/report.py` | Rendering of summaries as the Markdown table above. |
+| `src/rrt_planner/analysis/metrics.py` | Aggregation of run traces into per-planner summaries, and the seed-by-seed difference of two planners. |
+| `src/rrt_planner/analysis/report.py` | Rendering of summaries and paired differences as the Markdown tables above. |
 | `src/rrt_planner/analysis/figures.py` | Solution, convergence, and summary figures. |
 | `examples/` | Wiring scripts, no logic. |
 | `viz/` | Additive TypeScript and canvas animation, imported by nothing in `src/` or `tests/`. |

@@ -6,6 +6,11 @@ silently mix two different things. Node count, collision checks, and wall time a
 averaged over every run, since all three are spent whether or not a path is found.
 Where a statistic is undefined, for instance the cost of a planner that never
 succeeded, it is reported as ``nan`` rather than replaced by a placeholder.
+
+:func:`summarise` describes one planner at a time and discards the seed. The benchmark
+gives every planner the same seed sequence, so the seed can carry more than that:
+:func:`compare_paired` keeps it and reports the difference between two planners run by
+run, whose spread is the spread of the difference rather than the sum of two spreads.
 """
 
 from __future__ import annotations
@@ -16,7 +21,7 @@ from dataclasses import dataclass
 
 from rrt_planner.pipeline.benchmark import RunTrace
 
-__all__ = ["Summary", "mean_and_deviation", "summarise"]
+__all__ = ["PairedComparison", "Summary", "compare_paired", "mean_and_deviation", "summarise"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +45,41 @@ class Summary:
     def success_rate(self) -> float:
         """Fraction of runs that returned a valid path."""
         return self.successes / self.runs if self.runs else math.nan
+
+
+@dataclass(frozen=True, slots=True)
+class PairedComparison:
+    """Two planners differenced seed by seed on one problem.
+
+    Every difference is ``planner_a`` minus ``planner_b``, so a negative cost
+    difference means the first planner returned the cheaper path. Costs are
+    differenced over the seeds both planners solved, because the cost of a failed run
+    is not a number on the same scale as the others. Collision checks are differenced
+    over every shared seed, because a failed run spends them too.
+
+    The seeds left out of the cost difference are reported rather than dropped, since
+    a planner that fails on the seeds it finds hard would otherwise be flattered by
+    exactly the runs it lost.
+    """
+
+    planner_a: str
+    planner_b: str
+    problem: str
+    seeds: int
+    both_succeeded: int
+    a_only_succeeded: int
+    b_only_succeeded: int
+    cost_difference_mean: float
+    cost_difference_std: float
+    a_cheaper: int
+    b_cheaper: int
+    check_difference_mean: float
+    check_difference_std: float
+
+    @property
+    def neither_succeeded(self) -> int:
+        """Shared seeds on which both planners failed."""
+        return self.seeds - self.both_succeeded - self.a_only_succeeded - self.b_only_succeeded
 
 
 def mean_and_deviation(values: Sequence[float]) -> tuple[float, float]:
@@ -90,3 +130,58 @@ def summarise(traces: Iterable[RunTrace]) -> tuple[Summary, ...]:
             )
         )
     return tuple(summaries)
+
+
+def compare_paired(
+    traces: Iterable[RunTrace], planner_a: str, planner_b: str
+) -> tuple[PairedComparison, ...]:
+    """Difference two planners run by run, one row per problem, in first-seen order.
+
+    Only the seeds both planners ran are compared, so a problem the two do not share
+    is left out of the result rather than reported as a row of ``nan``. A planner
+    named here but absent from ``traces`` is an error, because a misspelt name would
+    otherwise be indistinguishable from a pair with nothing in common.
+    """
+    if planner_a == planner_b:
+        raise ValueError("a paired comparison needs two different planners")
+
+    runs: dict[tuple[str, str], dict[int, RunTrace]] = {}
+    observed: set[str] = set()
+    for trace in traces:
+        runs.setdefault((trace.problem, trace.planner), {})[trace.seed] = trace
+        observed.add(trace.planner)
+    for name in (planner_a, planner_b):
+        if name not in observed:
+            raise ValueError(f"no runs recorded for planner {name}")
+
+    comparisons: list[PairedComparison] = []
+    for problem in dict.fromkeys(problem for problem, _ in runs):
+        first = runs.get((problem, planner_a), {})
+        second = runs.get((problem, planner_b), {})
+        shared = sorted(first.keys() & second.keys())
+        if not shared:
+            continue
+        pairs = [(first[seed], second[seed]) for seed in shared]
+        solved = [(a, b) for a, b in pairs if a.success and b.success]
+        cost_mean, cost_std = mean_and_deviation([a.cost - b.cost for a, b in solved])
+        check_mean, check_std = mean_and_deviation(
+            [float(a.collision_checks - b.collision_checks) for a, b in pairs]
+        )
+        comparisons.append(
+            PairedComparison(
+                planner_a=planner_a,
+                planner_b=planner_b,
+                problem=problem,
+                seeds=len(pairs),
+                both_succeeded=len(solved),
+                a_only_succeeded=sum(1 for a, b in pairs if a.success and not b.success),
+                b_only_succeeded=sum(1 for a, b in pairs if b.success and not a.success),
+                cost_difference_mean=cost_mean,
+                cost_difference_std=cost_std,
+                a_cheaper=sum(1 for a, b in solved if a.cost < b.cost),
+                b_cheaper=sum(1 for a, b in solved if b.cost < a.cost),
+                check_difference_mean=check_mean,
+                check_difference_std=check_std,
+            )
+        )
+    return tuple(comparisons)

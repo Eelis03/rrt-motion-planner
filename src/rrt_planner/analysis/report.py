@@ -5,9 +5,9 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 
-from rrt_planner.analysis.metrics import Summary
+from rrt_planner.analysis.metrics import PairedComparison, Summary
 
-__all__ = ["format_summary_table"]
+__all__ = ["format_paired_table", "format_summary_table"]
 
 _HEADERS = (
     "Problem",
@@ -23,11 +23,42 @@ _HEADERS = (
     "Time sd (s)",
 )
 
+_PAIRED_HEADERS = (
+    "Problem",
+    "Planner A",
+    "Planner B",
+    "Seeds",
+    "Both",
+    "A only",
+    "B only",
+    "Cost diff mean",
+    "Cost diff sd",
+    "A cheaper",
+    "B cheaper",
+    "Checks diff mean",
+)
+
 
 def _number(value: float, digits: int) -> str:
     if math.isnan(value):
         return "n/a"
     return f"{value:.{digits}f}"
+
+
+def _table(headers: Sequence[str], rows: Sequence[tuple[str, ...]]) -> str:
+    widths = [
+        max(len(header), *(len(row[column]) for row in rows)) if rows else len(header)
+        for column, header in enumerate(headers)
+    ]
+    lines = [
+        "| " + " | ".join(h.ljust(w) for h, w in zip(headers, widths, strict=True)) + " |",
+        "| " + " | ".join("-" * w for w in widths) + " |",
+    ]
+    lines.extend(
+        "| " + " | ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=True)) + " |"
+        for row in rows
+    )
+    return "\n".join(lines)
 
 
 def format_summary_table(summaries: Sequence[Summary]) -> str:
@@ -48,16 +79,32 @@ def format_summary_table(summaries: Sequence[Summary]) -> str:
         )
         for summary in summaries
     ]
-    widths = [
-        max(len(header), *(len(row[column]) for row in rows)) if rows else len(header)
-        for column, header in enumerate(_HEADERS)
+    return _table(_HEADERS, rows)
+
+
+def format_paired_table(comparisons: Sequence[PairedComparison]) -> str:
+    """Render paired comparisons as a Markdown table with one row per problem.
+
+    Every difference is the first planner minus the second, so a negative cost
+    difference means the first planner returned the cheaper path. The three seed
+    counts are kept beside the difference because a mean over the seeds both planners
+    solved says nothing about the seeds only one of them did.
+    """
+    rows = [
+        (
+            comparison.problem,
+            comparison.planner_a,
+            comparison.planner_b,
+            str(comparison.seeds),
+            str(comparison.both_succeeded),
+            str(comparison.a_only_succeeded),
+            str(comparison.b_only_succeeded),
+            _number(comparison.cost_difference_mean, 2),
+            _number(comparison.cost_difference_std, 2),
+            str(comparison.a_cheaper),
+            str(comparison.b_cheaper),
+            _number(comparison.check_difference_mean, 0),
+        )
+        for comparison in comparisons
     ]
-    lines = [
-        "| " + " | ".join(h.ljust(w) for h, w in zip(_HEADERS, widths, strict=True)) + " |",
-        "| " + " | ".join("-" * w for w in widths) + " |",
-    ]
-    lines.extend(
-        "| " + " | ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=True)) + " |"
-        for row in rows
-    )
-    return "\n".join(lines)
+    return _table(_PAIRED_HEADERS, rows)
