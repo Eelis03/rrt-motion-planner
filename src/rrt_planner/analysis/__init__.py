@@ -4,7 +4,21 @@
 importing :mod:`rrt_planner.analysis` does not pull in matplotlib.
 """
 
-from rrt_planner.analysis.metrics import Summary, mean_and_deviation, summarise
-from rrt_planner.analysis.report import format_summary_table
+from rrt_planner.analysis.metrics import (
+    PairedComparison,
+    Summary,
+    compare_paired,
+    mean_and_deviation,
+    summarise,
+)
+from rrt_planner.analysis.report import format_paired_table, format_summary_table
 
-__all__ = ["Summary", "format_summary_table", "mean_and_deviation", "summarise"]
+__all__ = [
+    "PairedComparison",
+    "Summary",
+    "compare_paired",
+    "format_paired_table",
+    "format_summary_table",
+    "mean_and_deviation",
+    "summarise",
+]
